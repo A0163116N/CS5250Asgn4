@@ -19,6 +19,7 @@ Revision 2:
     Thanks Lee Wei Ping for trying and pointing out the difficulty & ambiguity with future_prediction SRTF.
 '''
 import sys
+import copy
 
 input_file = 'input.txt'
 
@@ -51,18 +52,21 @@ def FCFS_scheduling(process_list):
 #Output_2 : Average Waiting Time
 def RR_scheduling(process_list, time_quantum):
 	#some protection from negative value
-	if(time_quantum < 0):
-		time_quantum = 2
+	if(time_quantum <= 0):
+		print("Negative or zero time quantum = %d received, changed to default 2 time quantum\n" %time_quantum)
+                time_quantum = 2
+                
 	schedule = []
 	current_time = 0
 	waiting_time = 0
 	completed_process = 0
 	total_process = len(process_list)
+        
+        process_list_kept = copy.deepcopy(process_list)					
 	while completed_process < total_process:
 		#print("Completed %d current_time %d" %(completed_process, current_time))
-		for process in process_list:
+		for position, process in enumerate(process_list):
 			timeUpdated = 0
-			#print("current_process id %d\n" %process.id) 
 			if((current_time >= process.arrive_time) and (process.burst_time > 0)):
 				#print("current_time %d\n" %current_time)
 				if(process.burst_time > 0):
@@ -70,13 +74,13 @@ def RR_scheduling(process_list, time_quantum):
 					process.burst_time = process.burst_time - time_quantum
 				if(process.burst_time == 0):
 					completed_process = completed_process + 1
-					waiting_time = waiting_time + current_time - process.arrive_time
 					current_time = current_time + time_quantum
+					waiting_time = waiting_time + current_time - process.arrive_time - process_list_kept[position].burst_time
 					timeUpdated = 1
 				elif(process.burst_time < 0):
 					completed_process = completed_process + 1
-					waiting_time = waiting_time + current_time - process.arrive_time
 					current_time = current_time + process.burst_time + time_quantum
+					waiting_time = waiting_time + current_time - process.arrive_time - process_list_kept[position].burst_time
 					timeUpdated = 1
 				else:
 					current_time = current_time + time_quantum
@@ -101,7 +105,8 @@ def SRTF_scheduling(process_list):
 	waiting_time = 0
 	completed_process = 0
 	total_process = len(process_list)
-					
+        
+        process_list_kept = copy.deepcopy(process_list)					
 	while completed_process < total_process:
 		min_burst_time = -1
 		process_location = 0
@@ -113,19 +118,29 @@ def SRTF_scheduling(process_list):
 				elif(process.burst_time < min_burst_time):
 					min_burst_time = process.burst_time
 					process_location = position
-		
+
 		#get the minimum time, so this is the process to be run
-		process_list[process_location].burst_time = process_list[process_location].burst_time - 1
+                if(min_burst_time > 0):
+		    process_list[process_location].burst_time = process_list[process_location].burst_time - 1
 		
-		schedule.append((current_time, process_list[process_location].id))
+		    schedule.append((current_time, process_list[process_location].id))
 		
-		#if complete the process, then can get the waiting time for it
-		if(process_list[process_location].burst_time == 0):
-			waiting_time = waiting_time + current_time - process_list[process_location].arrive_time	
+		    #if complete the process, then can get the waiting time for it
+		    if(process_list[process_location].burst_time == 0):
+                        # time used is completion time (current time + 1) - burst time - arrival time
+			timeused = current_time + 1 - process_list[process_location].arrive_time - process_list_kept[process_location].burst_time
+			waiting_time = waiting_time + timeused	
+       #                 print("process id %d arrival time %d, burst time %d completed at %d current time, using %d time\n" %(process_list[process_location].id, process_list[process_location].arrive_time, process_list_kept[process_location].burst_time, current_time+1, timeused))   
 			completed_process = completed_process + 1
 				
-		current_time = current_time + 1
-
+		    current_time = current_time + 1
+                else:
+		    for process in process_list:
+			    if(process.arrive_time > current_time):
+                                    #since this process not interleave, mean previous burst time wont affect
+				    current_time = process.arrive_time 
+				    break
+        
 	#create a new schedule
 	schedule_len = len(schedule)
 	newschedule = []
@@ -180,6 +195,7 @@ def time_prediction(last_actual_list, last_prediction_list, pid, alpha):
 def SJF_scheduling(process_list, alpha):
 	#some protection from negative alpha
 	if(alpha < 0):
+                print("Negative alpha = %d received, reverse it to positive %d\n" %(alpha, -alpha))
 		alpha = -alpha
 	#generate the process list, assuming the process id can be anything but we just want every unique id
 	processActualRunTime = []
@@ -190,9 +206,9 @@ def SJF_scheduling(process_list, alpha):
 		output.add(process.id)
 	
 	for pid in output:
-			t = (pid, 0)
-			processActualRunTime.append(list(t))		#actual time need to be updated
-			processPredictedRunTime.append(list(t))	#later will predict the time to 5 if at first is 0, meaning init time	
+		t = (pid, 0)
+		processActualRunTime.append(list(t))		#actual time need to be updated
+		processPredictedRunTime.append(list(t))	#later will predict the time to 5 if at first is 0, meaning init time	
 	
 	schedule = []
 	current_time = 0
@@ -252,7 +268,7 @@ def SJF_scheduling(process_list, alpha):
 			process_list[min_position].burst_time = 0
 		else:
 			#print("No process run, so move to the next arriving time\n");
-			for proces in process_list:
+			for process in process_list:
 				if(process.arrive_time > current_time):
 					current_time = process.arrive_time 
 					break
@@ -347,8 +363,8 @@ def T2():
 	print("Minimum average waiting time for SJF: %f, at alpha: %.1f\n" %(minimum_sjf, alpha_sjf)) 
 
 def main(argv):
-	T1()
-#	T2()
+#	T1()
+	T2()
 
 if __name__ == '__main__':
     main(sys.argv[1:])
